@@ -193,7 +193,10 @@ td.neg{color:var(--mal)}
 }
 @media (min-width:641px){.solo-movil{display:none!important}}
 @media print{.barra,.tabs,.bt,.chk{display:none!important}body{background:#fff;color:#000}}
+/* Con el kit de diseño (portal/vivo.css) */
+.heroe .rot,.kpi .rot{display:block;padding-right:44px}
 </style>
+<link rel="stylesheet" href="../portal/vivo.css">
 </head>
 <body>
 <div class="gate" id="gate"><div class="caja">
@@ -212,7 +215,7 @@ td.neg{color:var(--mal)}
         <button data-a="modo" data-v="personal">Personal</button>
         <button data-a="modo" data-v="empresarial">Empresarial</button>
       </div>
-      <button class="bt peq solo-pc" data-a="excel">Excel</button>
+      <button class="bt peq solo-pc" data-a="excel" id="bExcel">Excel</button>
       <button class="bt peq ico" data-a="tema" id="bTema" aria-label="Cambiar tema" title="Cambiar tema">☀</button>
       <a class="bt peq" href="../portal/?menu=1" title="Mis herramientas">←<span class="solo-pc"> Mis herramientas</span></a>
     </div>
@@ -223,6 +226,7 @@ td.neg{color:var(--mal)}
 <div id="modal"></div>
 <div class="toast" id="toast" hidden role="status"></div>
 
+<script src="../portal/vivo.js"></script>
 <script src="motor.js"></script>
 <script>
 'use strict';
@@ -234,6 +238,10 @@ td.neg{color:var(--mal)}
 const SB_URL = 'https://ylwqztypjilecjwywawd.supabase.co', SB_KEY = 'sb_publishable_oHr1AqDbKi_lileKrmkhMg_4T6zYJ7E';
 const ID = 'finanzas', PORTAL = '../portal/', WSP = 'https://wa.me/51967292374';
 const M = window.FinMotor;
+// Kit de diseño común (portal/vivo.js). Si no cargó, la página funciona igual, sin íconos ni gráficos.
+const HAYV = !!window.Vivo, V = window.Vivo || { ico: () => '', av: () => '', chip: () => '', dona: () => '', barrasH: () => '', nivel: () => '', vacio: () => '', entrar() { }, contar() { } };
+const ICO_TAB = { resumen: 'inicio', ingresos: 'entra', gastos: 'pagos', ahorros: 'ahorro', quincenas: 'calendario', flujo: 'flujo', movimientos: 'lista', pendientes: 'reloj', resultado: 'barras' };
+let ultVista = '';
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const COMO = new URLSearchParams(location.search).get('como');
@@ -392,23 +400,24 @@ function pintar() {
   $('#cinta').textContent = 'Viendo como ' + (ctx.empresa || '') + ' · solo lectura';
   $('#segModo').hidden = !!COMO;
   document.querySelectorAll('#segModo button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === modo));
-  $('#tabs').innerHTML = T().tabs.map(([id, t]) => `<button data-a="vista" data-v="${id}" ${id === vista ? 'aria-current="page"' : ''}>${t}</button>`).join('');
+  $('#tabs').innerHTML = T().tabs.map(([id, t]) => `<button data-a="vista" data-v="${id}" ${id === vista ? 'aria-current="page"' : ''}>${V.ico(ICO_TAB[id])}${t}</button>`).join('');
   graficos = [];
   const inicio = !D.cfg && puedeTodo();
   $('#tabs').hidden = inicio;
-  if (inicio) { $('#vista').innerHTML = vInicio(); return; }
+  if (inicio) { $('#vista').innerHTML = vInicio(); if (ultVista !== 'inicio') { ultVista = 'inicio'; V.entrar($('#vista')); } return; }
   $('#vista').innerHTML = ({ resumen: vResumen, ingresos: () => vPartidas('ingreso'), gastos: () => vPartidas('gasto'), movimientos: () => vPartidas(null), ahorros: vCuentas, quincenas: vQuincenas, flujo: vFlujo, pendientes: vPendientes, resultado: vResultado }[vista] || vResumen)();
   dibujar();
+  if (ultVista !== modo + vista) { ultVista = modo + vista; V.entrar($('#vista')); }
 }
 const navMes = () => `<div class="mesnav"><button class="bt peq ico" data-a="mes" data-v="-1" aria-label="Mes anterior">‹</button><b>${nombreMes(mes.y, mes.m)}</b><button class="bt peq ico" data-a="mes" data-v="1" aria-label="Mes siguiente">›</button>${mes.y + '-' + mes.m !== +hoy.slice(0, 4) + '-' + +hoy.slice(5, 7) ? '<button class="bt peq" data-a="mes" data-v="0">Hoy</button>' : ''}</div>`;
-const btsAgregar = () => puedeEditar() ? `<button class="bt pri" data-a="nueva" data-v="ingreso">+ Ingreso</button><button class="bt pri" data-a="nueva" data-v="gasto">+ ${T().gasto}</button>` : '';
+const btsAgregar = () => puedeEditar() ? `<button class="bt pri" data-a="nueva" data-v="ingreso">${V.ico('entra')}+ Ingreso</button><button class="bt pri" data-a="nueva" data-v="gasto">${V.ico('sale')}+ ${T().gasto}</button>` : '';
 
 function heroe(q, titulo) {
   const c = CFG(), al = 'al ' + diaLargo(q.hasta);
   if (q.antes) return `<div class="card heroe"><div class="rot">${titulo}</div><div class="num">—</div><div class="al">${al}</div><div class="des"><div><span>Es anterior a la fecha de tu saldo (${dia(c.fecha_inicial)}).</span></div></div></div>`;
   const neg = q.saldo < 0;
   const viene = q.parcial || q.desde === c.fecha_inicial ? (modo === 'personal' ? 'Tienes' : 'Hay en caja') + ' (al ' + dia(c.fecha_inicial) + ')' : (q.q === 1 ? 'Vienes del mes anterior con' : 'Vienes de la quincena con');
-  return `<div class="card heroe ${neg ? 'neg' : ''}" data-q="${q.q}">
+  return `<div class="card heroe toca ${neg ? 'neg' : ''}" data-q="${q.q}" data-a="popQ" data-v="${q.q}" role="button" tabindex="0">${V.chip('calendario')}
     <div class="rot">${titulo}</div>
     <div class="num">${fmt(q.saldo)}</div>
     <div class="al">${al}${q.hasta < hoy ? ' · ya pasó' : ''}</div>
@@ -417,14 +426,14 @@ function heroe(q, titulo) {
       <div><span>${viene}</span><b>${fmt(q.base)}</b></div>
       <div><span>+ Ingresos</span><b>${fmt(q.ingresos)}</b></div>
       <div><span>− Pagos y gastos</span><b>${fmt(q.gastos)}</b></div>
-    </div></div>`;
+    </div><span class="vv-mas">Ver sus movimientos ${V.ico('flecha')}</span></div>`;
 }
 /* Tarjeta «hoy»: lo que hay en este momento, sin contar ahorros. No mira lo que falta. */
 const esPase = e => e.p.categoria === TX.personal.pase || e.p.categoria === TX.empresarial.pase;
 const alDia = () => M.alDia(CFG(), D.partidas, D.ocus, hoy, esPase);
 function cardAcum() {
   const c = CFG(), a = alDia(), neg = a.saldo < 0;
-  return `<div class="card heroe ${neg ? 'neg' : ''}" id="cardAcum">
+  return `<div class="card heroe ${neg ? 'neg' : ''}" id="cardAcum">${V.chip('cartera', '#4FD1A0')}
     <div class="rot">${T().acum}</div>
     <div class="num">${fmt(a.saldo)}</div>
     <div class="al">al ${diaLargo(hoy)} · ${T().acumSub}</div>
@@ -434,7 +443,7 @@ function cardAcum() {
       <div><span>+ Ingresos hasta hoy</span><b>${fmt(a.ingresos)}</b></div>
       <div><span>− Pagos y gastos hasta hoy</span><b>${fmt(a.gastos)}</b></div>
       <div><span>− ${T().paseLin}</span><b>${fmt(a.pases)}</b></div>
-      ${D.cfg && puedeEditar() ? `<div><button class="bt peq pri" data-a="pasar">${T().pasar}</button></div>` : ''}
+      ${D.cfg && puedeEditar() ? `<div><button class="bt peq pri" data-a="pasar">${V.ico('ahorro')}${T().pasar}</button></div>` : ''}
     </div></div>`;
 }
 function vQuincenas() {
@@ -467,6 +476,29 @@ function spark(vals) {
   if (vals.length < 2) return '';
   const lo = Math.min(...vals), hi = Math.max(...vals), r = hi - lo || 1;
   return `<svg class="spark" viewBox="0 0 100 38" preserveAspectRatio="none" aria-hidden="true"><path vector-effect="non-scaling-stroke" d="${vals.map((v, i) => (i ? 'L' : 'M') + (i * 100 / (vals.length - 1)).toFixed(1) + ' ' + (34 - (v - lo) * 30 / r).toFixed(1)).join(' ')}"/></svg>`;
+}
+
+// Pagos y gastos del mes por categoría (dona). Cada categoría se toca para ver sus movimientos.
+const catDe = e => e.p.categoria || 'Sin categoría';
+function donaGastos(ev) {
+  const g = {}; ev.filter(e => e.signo < 0 && !e.omitida).forEach(e => { g[catDe(e)] = (g[catDe(e)] || 0) + e.cent; });
+  const tot = Object.values(g).reduce((a, x) => a + x, 0) / 100;
+  if (!tot || !HAYV) return `<div class="vacio">${V.vacio('pagos')}${tot ? fmt(tot) + ' en pagos y gastos este mes.' : 'Este mes no tiene pagos ni gastos programados.'}</div>`;
+  return V.dona(Object.entries(g).map(([n, c]) => ({ n, v: c / 100, a: `data-a="popCat" data-c="${esc(n)}"` })), fmt0(tot), 'pagos y gastos', fmt);
+}
+// Ventanas de detalle: los movimientos de una quincena o de una categoría del mes
+function fPopQ(n) {
+  const q = M.periodos(CFG(), D.partidas, D.ocus, mes.y, mes.m, 1)[n - 1]; if (!q || q.antes) return;
+  const ev = M.eventos(D.partidas, D.ocus, q.desde, q.hasta);
+  ventana(`<h3>${n === 1 ? T().q1 : T().q2}</h3><p class="sub">Del ${dia(q.desde)} al ${dia(q.hasta)} · queda <b>${fmt(q.saldo)}</b> (${fmt(q.base)} + ${fmt(q.ingresos)} − ${fmt(q.gastos)})</p>
+    ${ev.length ? `<div class="lista">${ev.map(e => filaEvento(e)).join('')}</div>` : `<div class="vacio">${V.vacio('calendario')}No hay movimientos en estos días.</div>`}
+    <div class="pie">${btsAgregar()}<button type="button" class="bt" data-a="cerrar">Cerrar</button></div>`);
+}
+function fPopCat(cat) {
+  const ev = M.eventos(D.partidas, D.ocus, M.fechaDe(mes.y, mes.m, 1), M.finMes(mes.y, mes.m)).filter(e => e.signo < 0 && !e.omitida && catDe(e) === cat);
+  ventana(`<h3>${esc(cat)}</h3><p class="sub">${ev.length} ${ev.length === 1 ? 'pago' : 'pagos'} en ${nombreMes(mes.y, mes.m)} · <b>${fmt(ev.reduce((a, e) => a + e.cent, 0) / 100)}</b></p>
+    <div class="lista">${ev.map(e => filaEvento(e)).join('')}</div>
+    <div class="pie"><button type="button" class="bt" data-a="cerrar">Cerrar</button></div>`);
 }
 
 function filaEvento(e, queda) {
@@ -515,7 +547,7 @@ function vResumen() {
     : `<div class="card tengo" id="tengo"><div><div class="rot">${T().tengo}</div><div class="num">${fmt(Number(c.saldo_inicial))}</div><div class="al">al ${diaLargo(c.fecha_inicial)} · de aquí sale la cuenta: se suma y se resta lo que viene después</div></div>${puedeTodo() ? `<button class="bt" data-a="saldo">Actualizar</button>` : ''}</div>`}
     <div class="grid3 c4">
       ${heroe(q1, T().q1)}${heroe(q2, T().q2)}${cardAcum()}
-      <div class="card heroe" id="cardCtas">
+      <div class="card heroe" id="cardCtas">${V.chip('ahorro', '#5B8DEF')}
         <div class="rot">${T().ctas}</div>
         <div class="num">${fmt(rc.total)}</div>
         <div class="al">${D.cuentas.filter(x => !x.archivada).length} ${D.cuentas.filter(x => !x.archivada).length === 1 ? 'cuenta' : 'cuentas'}${rc.al ? ' · al ' + dia(rc.al) : ''}</div>
@@ -524,11 +556,13 @@ function vResumen() {
       </div>
     </div>
     ${kpis}
-    <div class="sec"><div class="fila"><h2>${T().graf}</h2><span class="dim">al cierre de cada quincena · 6 meses · acumulado</span></div>
+    <div class="duo g32"><div class="sec"><div class="fila"><h2>${T().graf}</h2><span class="dim">al cierre de cada quincena · 6 meses · acumulado</span></div>
       <div class="card"><div class="graf" id="gProy"></div></div></div>
+    <div class="sec"><div class="fila"><h2>${modo === 'personal' ? 'En qué se va tu dinero' : 'En qué se va la caja'}</h2><span class="dim">${nombreMes(mes.y, mes.m)}</span></div>
+      <div class="card" id="donaGastos">${donaGastos(ev)}</div></div></div>
     <div class="sec"><div class="fila"><h2>Movimientos de ${nombreMes(mes.y, mes.m)}</h2></div>
       ${atr.length ? `<div class="fila" style="margin-bottom:8px"><span class="aviso amb">⚠ ${atr.length} ${atr.length === 1 ? 'movimiento pasado sin marcar' : 'movimientos pasados sin marcar'}</span><button class="bt peq" data-a="atrasos">${verAtrasos ? 'Ocultar' : 'Ver'}</button></div>${verAtrasos ? `<div class="lista" style="margin-bottom:12px">${atr.slice(-30).map(e => filaEvento(e)).join('')}</div>` : ''}` : ''}
-      ${ev.length ? '<div class="duo">' + lista(1, 'Del 1 al 15', q1) + lista(2, 'Del 16 al ' + M.diasMes(mes.y, mes.m), q2) + '</div>' : `<div class="vacio"><b>Nada programado este mes</b>Agrega tus ingresos y tus pagos con sus fechas para ver cuánto te queda.</div>`}
+      ${ev.length ? '<div class="duo">' + lista(1, 'Del 1 al 15', q1) + lista(2, 'Del 16 al ' + M.diasMes(mes.y, mes.m), q2) + '</div>' : `<div class="vacio">${V.vacio('calendario')}<b>Nada programado este mes</b>Agrega tus ingresos y tus pagos con sus fechas para ver cuánto te queda.</div>`}
     </div>`;
 }
 
@@ -971,6 +1005,8 @@ const ACC = {
   },
   saldo: fSaldo,
   pasar: fPasar,
+  popQ: b => fPopQ(+b.dataset.v),
+  popCat: b => fPopCat(b.dataset.c),
   cuenta: b => fCuenta(b.dataset.c),
   regSaldo: b => fRegSaldo(b.dataset.c),
   historial: b => fHistorial(b.dataset.c),
@@ -1008,10 +1044,14 @@ document.addEventListener('submit', async e => {
   try { await guardarCfg({ saldo_inicial: m, fecha_inicial: hoy }); vista = 'resumen'; pintar(); }
   catch (er) { $('#iErr').textContent = er.message; b.disabled = false; }
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modal').innerHTML) cerrar(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('#modal').innerHTML) cerrar();
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role="button"][data-a]')) { e.preventDefault(); e.target.click(); }
+});
 
 function pintarTema() { const c = document.documentElement.getAttribute('data-tema') === 'claro'; $('#bTema').textContent = c ? '☾' : '☀'; const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = c ? '#F4F7FA' : '#0C1A2E'; }
 $('#logo').innerHTML = isotipo(24); $('#gLogo').innerHTML = isotipo(48); pintarTema();
+$('#bExcel').innerHTML = V.ico('bajar') + 'Excel';
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
 comprobar();
 </script>
