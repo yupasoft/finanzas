@@ -194,6 +194,13 @@ td.neg{color:var(--mal)}
 @media (min-width:641px){.solo-movil{display:none!important}}
 @media print{.barra,.tabs,.bt,.chk{display:none!important}body{background:#fff;color:#000}}
 /* Con el kit de diseño (portal/vivo.css) */
+.barras{display:flex;align-items:flex-end;gap:8px;height:170px;padding-top:8px}
+.barras div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;min-width:0;height:100%}
+.barras i{display:block;width:100%;max-width:64px;border-radius:7px 7px 2px 2px;background:linear-gradient(180deg,var(--acc),color-mix(in srgb,var(--acc) 45%,transparent));min-height:3px}
+.barras .neg i{background:var(--mal)}
+.barras small{font:500 10.5px 'IBM Plex Mono',monospace;color:var(--mute);white-space:nowrap}
+.barras em{font:600 10.5px 'IBM Plex Mono',monospace;font-style:normal;color:var(--tx);white-space:nowrap}
+@media (max-width:640px){.barras{gap:3px}.barras em{display:none}.barras small{font-size:8.5px;writing-mode:vertical-rl;transform:rotate(180deg)}}
 .heroe .rot,.kpi .rot{display:block;padding-right:44px}
 </style>
 <link rel="stylesheet" href="../portal/vivo.css">
@@ -450,6 +457,9 @@ function vQuincenas() {
   const per = M.periodos(CFG(), D.partidas, D.ocus, mes.y, mes.m, 6);
   return `
     <div class="fila">${navMes()}<span class="sep"></span>${btsAgregar()}</div>
+    <div class="sec"><div class="fila"><h2>Lo que te va quedando</h2><span class="dim">al cierre de cada quincena</span></div>
+      <div class="card"><div class="barras" id="bQuin">${(() => { const v = per.filter(q => !q.antes), max = Math.max(...v.map(q => Math.abs(q.saldo)), 1);
+        return v.length ? v.map(q => `<div class="${q.saldo < 0 ? 'neg' : ''}" title="${q.q === 1 ? '15' : M.diasMes(q.y, q.m)} ${MES3[q.m - 1]}: ${fmt(q.saldo)}"><em>${fmt0(q.saldo).replace('S/ ', '')}</em><i style="height:${Math.max(2, Math.abs(q.saldo) / max * 100)}%"></i><small>${q.q === 1 ? '15' : M.diasMes(q.y, q.m)} ${MES3[q.m - 1]}</small></div>`).join('') : '<span class="dim">Estos meses son anteriores a la fecha de tu saldo.</span>'; })()}</div></div></div>
     <div class="sec"><div class="fila"><h2>Quincena por quincena</h2><span class="dim">6 meses · lo que queda se va acumulando</span></div>
     <div class="tw"><table id="tPer"><thead><tr><th>Periodo</th><th class="solo-pc">Viene con</th><th>Ingresos</th><th>Pagos<span class="solo-pc"> y gastos</span></th><th>Queda<span class="solo-pc"> (acumulado)</span></th></tr></thead><tbody>
       ${per.map(q => `<tr><td>${q.q === 1 ? '1–15' : '16–' + M.diasMes(q.y, q.m)} ${MES3[q.m - 1]} ${String(q.y).slice(2)}</td>${q.antes ? '<td class="solo-pc">—</td><td>—</td><td>—</td><td>—</td>' : `<td class="solo-pc">${fmt(q.base)}</td><td>${fmt(q.ingresos)}</td><td>${fmt(q.gastos)}</td><td class="${q.saldo < 0 ? 'neg' : ''}"><b>${fmt(q.saldo)}</b></td>`}</tr>`).join('')}
@@ -494,9 +504,9 @@ function fPopQ(n) {
     ${ev.length ? `<div class="lista">${ev.map(e => filaEvento(e)).join('')}</div>` : `<div class="vacio">${V.vacio('calendario')}No hay movimientos en estos días.</div>`}
     <div class="pie">${btsAgregar()}<button type="button" class="bt" data-a="cerrar">Cerrar</button></div>`);
 }
-function fPopCat(cat) {
-  const ev = M.eventos(D.partidas, D.ocus, M.fechaDe(mes.y, mes.m, 1), M.finMes(mes.y, mes.m)).filter(e => e.signo < 0 && !e.omitida && catDe(e) === cat);
-  ventana(`<h3>${esc(cat)}</h3><p class="sub">${ev.length} ${ev.length === 1 ? 'pago' : 'pagos'} en ${nombreMes(mes.y, mes.m)} · <b>${fmt(ev.reduce((a, e) => a + e.cent, 0) / 100)}</b></p>
+function fPopCat(cat, tipo) {
+  const sg = tipo === 'ingreso' ? 1 : -1, ev = M.eventos(D.partidas, D.ocus, M.fechaDe(mes.y, mes.m, 1), M.finMes(mes.y, mes.m)).filter(e => e.signo === sg && !e.omitida && catDe(e) === cat);
+  ventana(`<h3>${esc(cat)}</h3><p class="sub">${ev.length} ${sg > 0 ? (ev.length === 1 ? 'ingreso' : 'ingresos') : (ev.length === 1 ? 'pago' : 'pagos')} en ${nombreMes(mes.y, mes.m)} · <b>${fmt(ev.reduce((a, e) => a + e.cent, 0) / 100)}</b></p>
     <div class="lista">${ev.map(e => filaEvento(e)).join('')}</div>
     <div class="pie"><button type="button" class="bt" data-a="cerrar">Cerrar</button></div>`);
 }
@@ -585,6 +595,11 @@ function vPartidas(tipo) {
   l = l.map(p => ({ p, prox: p.activo ? proxima(p) : null })).sort((a, b) => (a.prox || '9') < (b.prox || '9') ? -1 : (a.prox || '9') > (b.prox || '9') ? 1 : a.p.nombre.localeCompare(b.p.nombre));
   const delMes = t => M.eventos(D.partidas.filter(p => p.tipo === t), D.ocus, ini, fin).filter(e => !e.omitida).reduce((a, e) => a + e.cent, 0) / 100;
   const tit = tipo === 'ingreso' ? 'Ingresos' : tipo === 'gasto' ? 'Pagos y gastos' : 'Movimientos';
+  // De dónde viene o a dónde va el dinero del mes, por categoría (se toca para ver sus movimientos)
+  const porCat = t => { const g = {}; M.eventos(D.partidas.filter(p => p.tipo === t), D.ocus, ini, fin).filter(e => !e.omitida).forEach(e => { g[catDe(e)] = (g[catDe(e)] || 0) + e.cent; });
+    const tot = Object.values(g).reduce((a, x) => a + x, 0) / 100;
+    return tot && HAYV ? V.dona(Object.entries(g).map(([n, c]) => ({ n, v: c / 100, a: `data-a="popCat" data-c="${esc(n)}" data-t="${t}"` })), fmt0(tot), t === 'ingreso' ? 'ingresos' : 'pagos y gastos', fmt) : `<div class="vacio">${V.vacio(t === 'ingreso' ? 'entra' : 'pagos')}${t === 'ingreso' ? 'Este mes no tiene ingresos programados.' : 'Este mes no tiene pagos ni gastos programados.'}</div>`; };
+  const donas = (tipo ? [tipo] : ['ingreso', 'gasto']).map(t => `<div class="sec"><div class="fila"><h2>${t === 'ingreso' ? 'De dónde viene' : (modo === 'personal' ? 'En qué se va' : 'En qué se gasta')}</h2><span class="dim">${nombreMes(mes.y, mes.m)} · por categoría</span></div><div class="card dona-${t}">${porCat(t)}</div></div>`).join('');
   const fila = ({ p, prox }) => `<div class="ev ${p.tipo === 'ingreso' ? 'ing' : 'gas'} ${p.activo ? '' : 'omit'}"><button class="ev-c" data-a="editar" data-p="${p.id}">
       <span class="ev-n">${esc(p.nombre)}</span><span class="ev-m mono">${p.tipo === 'ingreso' ? '+' : '−'} ${fmt(Number(p.monto))}</span>
       <span class="ev-s">${esc([describir(p), p.categoria, p.contraparte, p.comprobante, p.centro].filter(Boolean).join(' · '))}</span>
@@ -592,9 +607,10 @@ function vPartidas(tipo) {
   return `
     <div class="fila"><h1>${tit}</h1><span class="sep"></span>${navMes()}</div>
     <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
-      ${tipo !== 'gasto' ? `<div class="kpi"><span class="rot">Ingresos de ${MES[mes.m - 1]}</span><b>${fmt(delMes('ingreso'))}</b></div>` : ''}
-      ${tipo !== 'ingreso' ? `<div class="kpi"><span class="rot">Pagos y gastos de ${MES[mes.m - 1]}</span><b>${fmt(delMes('gasto'))}</b></div>` : ''}
+      ${tipo !== 'gasto' ? `<div class="kpi">${V.chip('entra', '#4FD1A0')}<span class="rot">Ingresos de ${MES[mes.m - 1]}</span><b>${fmt(delMes('ingreso'))}</b></div>` : ''}
+      ${tipo !== 'ingreso' ? `<div class="kpi">${V.chip('sale', '#F2A93B')}<span class="rot">Pagos y gastos de ${MES[mes.m - 1]}</span><b>${fmt(delMes('gasto'))}</b></div>` : ''}
     </div>
+    <div class="${tipo ? '' : 'duo'}">${donas}</div>
     <div class="fila sec">
       ${tipo ? '' : `<div class="seg">${[['todos', 'Todos'], ['ingreso', 'Ingresos'], ['gasto', 'Gastos']].map(([v, t]) => `<button data-a="ftipo" data-v="${v}" aria-pressed="${filtro.tipo === v}">${t}</button>`).join('')}</div>
       <input class="busca" id="busca" type="search" placeholder="Buscar nombre, cliente, comprobante…" value="${esc(filtro.q)}" aria-label="Buscar">`}
@@ -1006,7 +1022,7 @@ const ACC = {
   saldo: fSaldo,
   pasar: fPasar,
   popQ: b => fPopQ(+b.dataset.v),
-  popCat: b => fPopCat(b.dataset.c),
+  popCat: b => fPopCat(b.dataset.c, b.dataset.t),
   cuenta: b => fCuenta(b.dataset.c),
   regSaldo: b => fRegSaldo(b.dataset.c),
   historial: b => fHistorial(b.dataset.c),
