@@ -70,11 +70,27 @@
 
   /* ¿Este movimiento cambia el saldo que se proyecta?
      Sí, si cae DESPUÉS del día del saldo ("cuánto tengo"), no está omitido y no se marcó
-     como hecho antes de fijar el saldo. Lo de ese día y lo anterior ya está dentro del saldo. */
+     como hecho antes de fijar el saldo. Lo de ese día y lo anterior ya está dentro del saldo,
+     salvo lo del MISMO día que se marcó como hecho después de fijar el saldo (salió o entró después). */
   function cuenta(cfg, e) {
-    if (e.omitida || e.fecha <= cfg.fecha_inicial) return false;
-    if (e.hecho && e.hecho_el && cfg.saldo_fijado_el && Date.parse(e.hecho_el) <= Date.parse(cfg.saldo_fijado_el)) return false;
+    if (e.omitida || e.fecha < cfg.fecha_inicial) return false;
+    var despues = !!(e.hecho && e.hecho_el && cfg.saldo_fijado_el && Date.parse(e.hecho_el) > Date.parse(cfg.saldo_fijado_el));
+    if (e.fecha === cfg.fecha_inicial) return despues;
+    if (e.hecho && e.hecho_el && cfg.saldo_fijado_el && !despues) return false;
     return true;
+  }
+
+  /* Lo que hay HOY: el saldo de partida más lo que ya venció hasta hoy y lo que se marcó
+     como hecho por adelantado. No mira lo que falta. null si hoy es antes del saldo.
+     esPase(e) separa lo que se pasó a ahorros. Devuelve soles: {base, ingresos, gastos, pases, saldo}. */
+  function alDia(cfg, partidas, ocus, hoy, esPase) {
+    if (hoy < cfg.fecha_inicial) return null;
+    var ing = 0, gas = 0, pas = 0, base = cent(cfg.saldo_inicial);
+    eventos(partidas, ocus, cfg.fecha_inicial, sumarDias(hoy, 400)).forEach(function (e) {
+      if (!cuenta(cfg, e) || (e.fecha > hoy && !e.hecho)) return;
+      if (e.signo > 0) ing += e.cent; else if (esPase && esPase(e)) pas += e.cent; else gas += e.cent;
+    });
+    return { base: base / 100, ingresos: ing / 100, gastos: gas / 100, pases: pas / 100, saldo: (base + ing - gas - pas) / 100 };
   }
 
   /* Dinero que queda al terminar un día. null si es antes del saldo de partida. */
@@ -128,7 +144,7 @@
       .map(function (s) { return { fecha: s.fecha, total: Number(s.monto) }; });
   }
 
-  var api = { fechas: fechas, eventos: eventos, cuenta: cuenta, saldoAl: saldoAl, periodos: periodos, serieCuentas: serieCuentas, serieCuenta: serieCuenta,
+  var api = { fechas: fechas, eventos: eventos, cuenta: cuenta, saldoAl: saldoAl, alDia: alDia, periodos: periodos, serieCuentas: serieCuentas, serieCuenta: serieCuenta,
               fechaDe: fechaDe, finMes: finMes, sumarDias: sumarDias, diasMes: diasMes, num: num, cent: cent };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else raiz.FinMotor = api;
 })(typeof self !== 'undefined' ? self : this);

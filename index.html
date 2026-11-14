@@ -70,6 +70,9 @@ h2{font-size:16px;margin:0}
 
 /* Tarjetas */
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:16px}
+.grid3.c4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:1500px){.grid3.c4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:900px){.grid3.c4{grid-template-columns:1fr}}
 .kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:14px}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:18px}
 .heroe{position:relative;overflow:hidden}
@@ -238,15 +241,15 @@ const COMO = new URLSearchParams(location.search).get('como');
 /* ---------- Textos según el espacio ---------- */
 const TX = {
   personal: {
-    tabs: [['resumen', 'Resumen'], ['ingresos', 'Ingresos'], ['gastos', 'Pagos y gastos'], ['ahorros', 'Ahorros']],
-    tengo: 'Tengo', q1: 'Te queda en la quincena', q2: 'Te queda a fin de mes', ctas: 'Ahorros', ctasTit: 'Mis ahorros', cta: 'cuenta de ahorro',
+    tabs: [['resumen', 'Resumen'], ['ingresos', 'Ingresos'], ['gastos', 'Pagos y gastos'], ['ahorros', 'Ahorros'], ['quincenas', 'Quincenas']],
+    acum: 'Te queda hoy', acumSub: 'sin contar tus ahorros', pasar: 'Pasar a ahorros', pase: 'Pase a ahorros', paseLin: 'Pasado a ahorros', tengo: 'Tengo', q1: 'Te queda en la quincena', q2: 'Te queda a fin de mes', ctas: 'Ahorros', ctasTit: 'Mis ahorros', cta: 'cuenta de ahorro',
     saldo: '¿Cuánto dinero tienes hoy?', saldoBt: 'Actualizar mi dinero de hoy', graf: 'Cómo va quedando tu dinero',
     hechoIng: 'Cobrado', hechoGas: 'Pagado', gasto: 'Pago o gasto',
     cats: { ingreso: ['Sueldo', 'Honorarios', 'Negocio', 'Otros ingresos'], gasto: ['Vivienda', 'Servicios', 'Comida', 'Transporte', 'Deudas y tarjetas', 'Salud', 'Educación', 'Entretenimiento', 'Otros'] }
   },
   empresarial: {
-    tabs: [['resumen', 'Resumen'], ['flujo', 'Flujo de caja'], ['movimientos', 'Movimientos'], ['pendientes', 'Por cobrar y pagar'], ['resultado', 'Resultado y presupuesto'], ['ahorros', 'Cuentas']],
-    tengo: 'Caja', q1: 'Caja proyectada a la quincena', q2: 'Caja proyectada a fin de mes', ctas: 'Cuentas y bancos', ctasTit: 'Cuentas y bancos', cta: 'cuenta',
+    tabs: [['resumen', 'Resumen'], ['flujo', 'Flujo de caja'], ['movimientos', 'Movimientos'], ['pendientes', 'Por cobrar y pagar'], ['resultado', 'Resultado y presupuesto'], ['ahorros', 'Cuentas'], ['quincenas', 'Quincenas']],
+    acum: 'Caja de hoy', acumSub: 'sin contar cuentas y bancos', pasar: 'Pasar a una cuenta', pase: 'Pase a cuentas', paseLin: 'Pasado a cuentas', tengo: 'Caja', q1: 'Caja proyectada a la quincena', q2: 'Caja proyectada a fin de mes', ctas: 'Cuentas y bancos', ctasTit: 'Cuentas y bancos', cta: 'cuenta',
     saldo: '¿Cuánto hay hoy en caja?', saldoBt: 'Actualizar la caja de hoy', graf: 'Caja proyectada',
     hechoIng: 'Cobrado', hechoGas: 'Pagado', gasto: 'Gasto o pago',
     cats: { ingreso: ['Ventas', 'Servicios', 'Cobranzas', 'Otros ingresos'], gasto: ['Planilla', 'Alquiler', 'Servicios', 'Proveedores', 'Impuestos', 'Marketing', 'Préstamos', 'Otros'] }
@@ -394,7 +397,7 @@ function pintar() {
   const inicio = !D.cfg && puedeTodo();
   $('#tabs').hidden = inicio;
   if (inicio) { $('#vista').innerHTML = vInicio(); return; }
-  $('#vista').innerHTML = ({ resumen: vResumen, ingresos: () => vPartidas('ingreso'), gastos: () => vPartidas('gasto'), movimientos: () => vPartidas(null), ahorros: vCuentas, flujo: vFlujo, pendientes: vPendientes, resultado: vResultado }[vista] || vResumen)();
+  $('#vista').innerHTML = ({ resumen: vResumen, ingresos: () => vPartidas('ingreso'), gastos: () => vPartidas('gasto'), movimientos: () => vPartidas(null), ahorros: vCuentas, quincenas: vQuincenas, flujo: vFlujo, pendientes: vPendientes, resultado: vResultado }[vista] || vResumen)();
   dibujar();
 }
 const navMes = () => `<div class="mesnav"><button class="bt peq ico" data-a="mes" data-v="-1" aria-label="Mes anterior">‹</button><b>${nombreMes(mes.y, mes.m)}</b><button class="bt peq ico" data-a="mes" data-v="1" aria-label="Mes siguiente">›</button>${mes.y + '-' + mes.m !== +hoy.slice(0, 4) + '-' + +hoy.slice(5, 7) ? '<button class="bt peq" data-a="mes" data-v="0">Hoy</button>' : ''}</div>`;
@@ -415,6 +418,33 @@ function heroe(q, titulo) {
       <div><span>+ Ingresos</span><b>${fmt(q.ingresos)}</b></div>
       <div><span>− Pagos y gastos</span><b>${fmt(q.gastos)}</b></div>
     </div></div>`;
+}
+/* Tarjeta «hoy»: lo que hay en este momento, sin contar ahorros. No mira lo que falta. */
+const esPase = e => e.p.categoria === TX.personal.pase || e.p.categoria === TX.empresarial.pase;
+const alDia = () => M.alDia(CFG(), D.partidas, D.ocus, hoy, esPase);
+function cardAcum() {
+  const c = CFG(), a = alDia(), neg = a.saldo < 0;
+  return `<div class="card heroe ${neg ? 'neg' : ''}" id="cardAcum">
+    <div class="rot">${T().acum}</div>
+    <div class="num">${fmt(a.saldo)}</div>
+    <div class="al">al ${diaLargo(hoy)} · ${T().acumSub}</div>
+    ${neg ? `<div class="aviso mal">⚠ ${modo === 'personal' ? 'Te faltan' : 'Faltan'} ${fmt(-a.saldo)}</div>` : ''}
+    <div class="des">
+      <div><span>${modo === 'personal' ? 'Tenías' : 'Había en caja'} (al ${dia(c.fecha_inicial)})</span><b>${fmt(a.base)}</b></div>
+      <div><span>+ Ingresos hasta hoy</span><b>${fmt(a.ingresos)}</b></div>
+      <div><span>− Pagos y gastos hasta hoy</span><b>${fmt(a.gastos)}</b></div>
+      <div><span>− ${T().paseLin}</span><b>${fmt(a.pases)}</b></div>
+      ${D.cfg && puedeEditar() ? `<div><button class="bt peq pri" data-a="pasar">${T().pasar}</button></div>` : ''}
+    </div></div>`;
+}
+function vQuincenas() {
+  const per = M.periodos(CFG(), D.partidas, D.ocus, mes.y, mes.m, 6);
+  return `
+    <div class="fila">${navMes()}<span class="sep"></span>${btsAgregar()}</div>
+    <div class="sec"><div class="fila"><h2>Quincena por quincena</h2><span class="dim">6 meses · lo que queda se va acumulando</span></div>
+    <div class="tw"><table id="tPer"><thead><tr><th>Periodo</th><th class="solo-pc">Viene con</th><th>Ingresos</th><th>Pagos<span class="solo-pc"> y gastos</span></th><th>Queda<span class="solo-pc"> (acumulado)</span></th></tr></thead><tbody>
+      ${per.map(q => `<tr><td>${q.q === 1 ? '1–15' : '16–' + M.diasMes(q.y, q.m)} ${MES3[q.m - 1]} ${String(q.y).slice(2)}</td>${q.antes ? '<td class="solo-pc">—</td><td>—</td><td>—</td><td>—</td>' : `<td class="solo-pc">${fmt(q.base)}</td><td>${fmt(q.ingresos)}</td><td>${fmt(q.gastos)}</td><td class="${q.saldo < 0 ? 'neg' : ''}"><b>${fmt(q.saldo)}</b></td>`}</tr>`).join('')}
+    </tbody></table></div></div>`;
 }
 function vInicio() {
   const per = modo === 'personal';
@@ -440,10 +470,10 @@ function spark(vals) {
 }
 
 function filaEvento(e, queda) {
-  const k = e.p.id + '" data-f="' + e.fecha, ing = e.signo > 0, dentro = e.fecha <= CFG().fecha_inicial, atraso = !dentro && !e.hecho && !e.omitida && e.fecha < hoy;
-  const sub = [dia(e.fecha), e.p.categoria, e.p.contraparte, e.omitida ? 'omitido esta vez' : dentro ? 'ya está en tu saldo' : e.hecho ? (ing ? T().hechoIng : T().hechoGas).toLowerCase() : atraso ? 'atrasado' : '', e.cambiado && !e.omitida ? 'monto ajustado' : ''].filter(Boolean).join(' · ');
-  return `<div class="ev ${ing ? 'ing' : 'gas'} ${e.hecho || dentro ? 'hecho' : ''} ${dentro ? 'dentro' : ''} ${e.omitida ? 'omit' : ''} ${atraso ? 'atraso' : ''}">
-    <button class="chk" data-a="hecho" data-p="${k}" aria-pressed="${e.hecho}" aria-label="${e.hecho ? 'Quitar marca' : 'Marcar como ' + (ing ? 'cobrado' : 'pagado')}" ${puedeEditar() && !e.omitida && !dentro ? '' : 'disabled'}>✓</button>
+  const k = e.p.id + '" data-f="' + e.fecha, ing = e.signo > 0, fi = CFG().fecha_inicial, dentro = e.fecha < fi || (e.fecha === fi && !M.cuenta(CFG(), e)), atraso = !dentro && !e.hecho && !e.omitida && e.fecha < hoy;
+  const sub = [dia(e.fecha), e.p.categoria, e.p.contraparte, e.omitida ? 'omitido esta vez' : dentro ? (e.fecha === fi && !e.hecho && puedeEditar() ? 'ya está en tu saldo · marca ✓ si fue después' : 'ya está en tu saldo') : e.hecho ? (ing ? T().hechoIng : T().hechoGas).toLowerCase() : atraso ? 'atrasado' : '', e.cambiado && !e.omitida ? 'monto ajustado' : ''].filter(Boolean).join(' · ');
+  return `<div class="ev ${ing ? 'ing' : 'gas'} ${e.hecho || (dentro && e.fecha < fi) ? 'hecho' : ''} ${dentro ? 'dentro' : ''} ${dentro && e.fecha === fi ? 'mismo' : ''} ${e.omitida ? 'omit' : ''} ${atraso ? 'atraso' : ''}">
+    <button class="chk" data-a="hecho" data-p="${k}" aria-pressed="${e.hecho}" aria-label="${e.hecho ? 'Quitar marca' : 'Marcar como ' + (ing ? 'cobrado' : 'pagado')}" ${puedeEditar() && !e.omitida && e.fecha >= fi ? '' : 'disabled'}>✓</button>
     <button class="ev-c" data-a="ocu" data-p="${k}">
       <span class="ev-n">${esc(e.p.nombre)}</span><span class="ev-m mono">${ing ? '+' : '−'} ${fmt(e.cent / 100)}</span>
       <span class="ev-s">${esc(sub)}</span>${queda === undefined || queda === null ? '' : `<span class="ev-q">queda ${fmt(queda)}</span>`}
@@ -483,8 +513,8 @@ function vResumen() {
     <div class="fila">${navMes()}<span class="sep"></span>${btsAgregar()}</div>
     ${!D.cfg ? `<div class="inicio"><h2>Falta el saldo de caja</h2><p class="dim" style="margin:6px 0 0">El Responsable de tu organización todavía no dice cuánto hay en caja. Mientras tanto la cuenta parte de cero.</p></div>`
     : `<div class="card tengo" id="tengo"><div><div class="rot">${T().tengo}</div><div class="num">${fmt(Number(c.saldo_inicial))}</div><div class="al">al ${diaLargo(c.fecha_inicial)} · de aquí sale la cuenta: se suma y se resta lo que viene después</div></div>${puedeTodo() ? `<button class="bt" data-a="saldo">Actualizar</button>` : ''}</div>`}
-    <div class="grid3">
-      ${heroe(q1, T().q1)}${heroe(q2, T().q2)}
+    <div class="grid3 c4">
+      ${heroe(q1, T().q1)}${heroe(q2, T().q2)}${cardAcum()}
       <div class="card heroe" id="cardCtas">
         <div class="rot">${T().ctas}</div>
         <div class="num">${fmt(rc.total)}</div>
@@ -494,11 +524,8 @@ function vResumen() {
       </div>
     </div>
     ${kpis}
-    <div class="duo g32"><div class="sec"><div class="fila"><h2>${T().graf}</h2><span class="dim">al cierre de cada quincena · 6 meses · acumulado</span></div>
+    <div class="sec"><div class="fila"><h2>${T().graf}</h2><span class="dim">al cierre de cada quincena · 6 meses · acumulado</span></div>
       <div class="card"><div class="graf" id="gProy"></div></div></div>
-    <div class="sec"><div class="fila"><h2>Quincena por quincena</h2></div><div class="tw"><table id="tPer"><thead><tr><th>Periodo</th><th>Ingresos</th><th>Pagos<span class="solo-pc"> y gastos</span></th><th>Queda<span class="solo-pc"> (acumulado)</span></th></tr></thead><tbody>
-      ${per.map(q => `<tr><td>${q.q === 1 ? '1–15' : '16–' + M.diasMes(q.y, q.m)} ${MES3[q.m - 1]} ${String(q.y).slice(2)}</td>${q.antes ? '<td>—</td><td>—</td><td>—</td>' : `<td>${fmt(q.ingresos)}</td><td>${fmt(q.gastos)}</td><td class="${q.saldo < 0 ? 'neg' : ''}"><b>${fmt(q.saldo)}</b></td>`}</tr>`).join('')}
-      </tbody></table></div></div></div>
     <div class="sec"><div class="fila"><h2>Movimientos de ${nombreMes(mes.y, mes.m)}</h2></div>
       ${atr.length ? `<div class="fila" style="margin-bottom:8px"><span class="aviso amb">⚠ ${atr.length} ${atr.length === 1 ? 'movimiento pasado sin marcar' : 'movimientos pasados sin marcar'}</span><button class="bt peq" data-a="atrasos">${verAtrasos ? 'Ocultar' : 'Ver'}</button></div>${verAtrasos ? `<div class="lista" style="margin-bottom:12px">${atr.slice(-30).map(e => filaEvento(e)).join('')}</div>` : ''}` : ''}
       ${ev.length ? '<div class="duo">' + lista(1, 'Del 1 al 15', q1) + lista(2, 'Del 16 al ' + M.diasMes(mes.y, mes.m), q2) + '</div>' : `<div class="vacio"><b>Nada programado este mes</b>Agrega tus ingresos y tus pagos con sus fechas para ver cuánto te queda.</div>`}
@@ -835,6 +862,38 @@ function fRegSaldo(id) {
       await ponerSaldo(id, val('rFecha'), m); toast('Saldo registrado');
     });
 }
+function fPasar() {
+  const vivas = D.cuentas.filter(x => !x.archivada), disp = alDia().saldo, per = modo === 'personal';
+  const ult = id => { const s = M.serieCuenta(D.saldos, id); return s.length ? s[s.length - 1].total : 0; };
+  if (!vivas.length) {
+    ventana(`<h3>${T().pasar}</h3><p class="sub">${per ? 'Primero agrega la cuenta donde ahorras (banco, cooperativa, efectivo guardado).' : 'Primero agrega la cuenta bancaria de la empresa.'}</p>
+      <div class="pie"><button type="button" class="bt" data-a="cerrar">Cancelar</button>${puedeTodo() ? `<button type="button" class="bt pri" data-a="cuenta">Agregar ${T().cta}</button>` : ''}</div>`);
+    return;
+  }
+  ventana(`<h3>${T().pasar}</h3><p class="sub">${per ? 'Sale de tu dinero de hoy y entra a tus ahorros, en un solo paso.' : 'Sale de la caja de hoy y entra a la cuenta, en un solo paso.'} Disponible hoy: <b>${fmt(disp)}</b></p>
+    <div class="campos">
+      ${campo('pMonto', '¿Cuánto pasas? (S/)', `<input id="pMonto" inputmode="decimal" placeholder="0.00" autocomplete="off" autofocus>`)}
+      ${campo('pCta', '¿A qué cuenta?', `<select id="pCta">${vivas.map(x => `<option value="${x.id}">${esc(x.nombre)} · ${fmt(ult(x.id))}</option>`).join('')}</select>`)}
+    </div>
+    <div class="nota">Queda anotado en los movimientos de hoy como «${T().pase}». Si te equivocas, elimina ese movimiento y corrige el saldo de la cuenta.</div>${pie()}`,
+    async () => {
+      const m = leerMonto(val('pMonto')), id = val('pCta'), k = D.cuentas.find(x => x.id === id);
+      if (isNaN(m) || !(m > 0)) throw new Error('Escribe cuánto pasas, en soles.');
+      if (M.cent(m) > M.cent(disp)) throw new Error('Hoy solo tienes ' + fmt(disp) + '.');
+      const r = await api('POST', 'fin_partidas', { modo, tipo: 'gasto', nombre: T().pase + ' · ' + k.nombre, monto: m, frecuencia: 'unico', fecha: hoy, fecha_fin: null, categoria: T().pase, notas: null, activo: true }, 'return=representation');
+      const pa = r[0];
+      try {
+        const o = await api('POST', 'fin_ocurrencias?on_conflict=partida_id,fecha', { partida_id: pa.id, fecha: hoy, hecho: true, monto: null, omitida: false }, 'resolution=merge-duplicates,return=representation');
+        if (!o || !o.length) throw new Error(SINPERMISO);
+        await ponerSaldo(id, hoy, (M.cent(ult(id)) + M.cent(m)) / 100);
+        D.partidas.push(pa); D.ocus[pa.id + '|' + hoy] = o[0];
+      } catch (e) {
+        try { await api('DELETE', 'fin_partidas?id=eq.' + pa.id); } catch (x) { D.partidas.push(pa); }
+        throw new Error('No se pudo completar el pase. ' + (e.message || '') + ' Revisa tus movimientos de hoy antes de intentarlo otra vez.');
+      }
+      toast('Listo: pasaste ' + fmt(m) + ' a ' + k.nombre);
+    });
+}
 function fHistorial(id) {
   const c = D.cuentas.find(x => x.id === id), s = M.serieCuenta(D.saldos, id).reverse();
   ventana(`<h3>Historial · ${esc(c.nombre)}</h3><p class="sub">${s.length} ${s.length === 1 ? 'registro' : 'registros'}</p>
@@ -911,6 +970,7 @@ const ACC = {
     } catch (e) { b.disabled = false; error(e); }
   },
   saldo: fSaldo,
+  pasar: fPasar,
   cuenta: b => fCuenta(b.dataset.c),
   regSaldo: b => fRegSaldo(b.dataset.c),
   historial: b => fHistorial(b.dataset.c),
