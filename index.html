@@ -285,7 +285,7 @@ function leerMonto(v) {
   if (!/^-?\d+(\.\d+)?$/.test(s)) return NaN;
   return Math.round(parseFloat(s) * 100) / 100;
 }
-function yupana(px) {
+function isotipo(px) {
   let r = '';
   for (let c = 0; c < 4; c++) for (let f = 0; f < 4; f++) {
     const llena = f >= 3 - c;
@@ -1011,7 +1011,7 @@ document.addEventListener('submit', async e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modal').innerHTML) cerrar(); });
 
 function pintarTema() { const c = document.documentElement.getAttribute('data-tema') === 'claro'; $('#bTema').textContent = c ? '☾' : '☀'; const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = c ? '#F4F7FA' : '#0C1A2E'; }
-$('#logo').innerHTML = yupana(24); $('#gLogo').innerHTML = yupana(48); pintarTema();
+$('#logo').innerHTML = isotipo(24); $('#gLogo').innerHTML = isotipo(48); pintarTema();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
 comprobar();
 </script>
