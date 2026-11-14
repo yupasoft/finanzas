@@ -69,10 +69,10 @@
   }
 
   /* ¿Este movimiento cambia el saldo que se proyecta?
-     Sí, si cae el día del saldo de partida o después, no está omitido y no se marcó
-     como hecho ANTES de fijar el saldo (en ese caso ya está dentro del saldo). */
+     Sí, si cae DESPUÉS del día del saldo ("cuánto tengo"), no está omitido y no se marcó
+     como hecho antes de fijar el saldo. Lo de ese día y lo anterior ya está dentro del saldo. */
   function cuenta(cfg, e) {
-    if (e.omitida || e.fecha < cfg.fecha_inicial) return false;
+    if (e.omitida || e.fecha <= cfg.fecha_inicial) return false;
     if (e.hecho && e.hecho_el && cfg.saldo_fijado_el && Date.parse(e.hecho_el) <= Date.parse(cfg.saldo_fijado_el)) return false;
     return true;
   }
