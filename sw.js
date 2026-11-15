@@ -1,6 +1,6 @@
 // Yupafinanzas · service worker (Yupasoft)
 // Guarda la pantalla para que abra rápido. Los datos siempre se piden a la base: no se guardan aquí.
-var V='yupa-finanzas-v6',ARCH=['./','index.html','motor.js','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/favicon.svg'];
+var V='yupa-finanzas-v7',ARCH=['./','index.html','motor.js','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/favicon.svg'];
 self.addEventListener('install',function(e){e.waitUntil(caches.open(V).then(function(c){return c.addAll(ARCH)}));self.skipWaiting()});
 self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(k){return Promise.all(k.filter(function(n){return n.indexOf('yupa-finanzas-')===0&&n!==V}).map(function(n){return caches.delete(n)}))}));self.clients.claim()});
 self.addEventListener('fetch',function(e){
